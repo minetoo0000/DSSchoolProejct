@@ -4,11 +4,19 @@ using namespace std;
 template <typename T>
 class Vector{
     private:
-    T* a = (T*)malloc(1 * sizeof(T));
+    T* a;
     unsigned long n = 1;
     unsigned long end = 0;
 
     public:
+    Vector(){
+        a = (T*)malloc(1 * sizeof(T));
+    }
+
+    Vector(int n){
+        a = (T*)malloc(n * sizeof(T));
+    }
+
     T operator[](unsigned long x){
         return a[x];
     }
