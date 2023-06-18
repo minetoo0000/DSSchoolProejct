@@ -19,6 +19,23 @@
 
 
 // --[[ interface ]]
+// -- 물품 정보.
+typedef struct t$dssp$goods_info
+{
+	// 가격.
+	uint32_t price;
+	// 재고 수.
+	uint32_t count;
+	// 물품 총 재고추가량.
+	uint32_t total_upcount;
+	// 물품 총 재고 소진량.
+	uint32_t total_downcount;
+	// 물품 총 판매액
+	uint64_t total_sales;
+	// 추가 증정량. "n+1 할인 중"
+	uint8_t additional_n;
+} t$dssp$goods_info;
+
 // -- 매점 객체.
 typedef struct t$dssp$store
 {
