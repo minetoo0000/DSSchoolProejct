@@ -1,3 +1,5 @@
+#pragma once
+
 #include "vector.hpp"
 #include <random>
 #include <cstring>
@@ -15,7 +17,7 @@ struct Key{
     }
 
     Key(){
-        key = "\0";
+        key = "";
     }
 
     Key(char* c){
@@ -31,7 +33,7 @@ ostream& operator<<(ostream& os, const Key& cur)
 
 template <typename TK, typename TV>
 class Skiplist{
-    private:
+    public:
     struct Node;
     struct Node{
         Vector<Node*> l;
@@ -40,6 +42,7 @@ class Skiplist{
         TV value;
     };
 
+    private:
     unsigned long long maxH;
     float p;
     Node* head = new Node();
