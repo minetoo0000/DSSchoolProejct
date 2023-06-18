@@ -1,5 +1,6 @@
 #include "vector.hpp"
 #include <random>
+#include <cstring>
 
 struct Key{
     char* key;
@@ -14,7 +15,7 @@ struct Key{
     }
 
     Key(){
-        key = nullptr;
+        key = "\0";
     }
 
     Key(char* c){
@@ -72,6 +73,7 @@ class Skiplist{
         maxH = _maxH;
         p = _p;
         head->l.resize(maxH);
+        head->l.fill(nullptr);
         head->h = maxH;
     }
 
@@ -93,6 +95,7 @@ class Skiplist{
         cur->value = v;
         cur->h = getH();
         cur->l.resize(cur->h);
+        cur->l.fill(nullptr);
         for(int i = 0; i < cur->h; i++){
             cur->l[i] = path[i]->l[i];
             path[i]->l[i] = cur;
