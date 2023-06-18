@@ -19,36 +19,6 @@
 
 
 // --[[ interface ]]
-// -- Key
-struct t$dssp$key{
-    char* key;
-    bool operator<(char* other){
-        bool ret = strcmp(key, other);
-        if(ret < 0) return 1;
-        return 0;
-    }
-};
-
-
-// -- 상품 정보.
-typedef struct t$dssp$goods_info
-{
-	// 가격.
-	uint32_t price;
-	// 재고 수.
-	uint32_t count;
-	// 물품 총 재고추가량.
-	uint32_t total_upcount;
-	// 물품 총 재고 소진량.
-	uint32_t total_downcount;
-	// 물품 총 판매액
-	uint64_t total_sales;
-	// 추가 증정량. "n+m 할인 중"
-	uint8_t additional_n:4;
-	uint8_t additional_m:4;
-} t$dssp$goods_info;
-
-
 // -- 매점 객체.
 typedef struct t$dssp$store
 {
@@ -66,38 +36,8 @@ typedef struct t$dssp$store
 	uint32_t total_goods;
 	// 재고 딕셔너리 객체.
 	// std::map<t$dssp$key, t$dssp$goods_info> dict;
-	Skiplist<t$dssp$key, t$dssp$goods_info> dict;
+	Skiplist<Key, t$dssp$goods_info> dict;
 } t$dssp$store;
-
-
-// --[[ 임시 함수 ]]
-// -- 딕셔너리에 키:값 설정.
-// 이미 키 값이 존재한다면 값만 적용.
-// 새 키라면 키:값 쌍 추가.
-// 개발선택사항 : 성공 시 1을, 실패 시 0을 반환.
-int __set( const char*const key_name, const t$dssp$goods_info value_goods_info )
-{
-	return( 0 );
-}
-
-
-// -- 딕셔너리에서 키:값 쌍 삭제.
-// 개발선택사항
-// 해당 키가 발견되지 않거나 삭제에 성공하면 1을,
-// 해당 키가 존재하지만 삭제에 실패한 경우에는 0을 반환.
-int __remove( const char*const key_name )
-{
-	return( 0 );
-}
-
-
-// -- 키에 해당하는 상품 정보 객체 포인터 반환.
-// 해당하는 키가 없다면 널포인터 0을 반환함.
-t$dssp$goods_info* __find( const char*const key_name )
-{
-	t$dssp$goods_info* get = 0;
-	return( get );
-}
 
 
 // -- 매점 재고 정보 및 현황 출력 예시.
@@ -175,7 +115,7 @@ t$dssp$store f$dssp$newStore( const char*const store_name )
 	// 0. 선언.
 	char* store_name_copy = 0;
 	int get_strlen = 0;
-	Skiplist<t$dssp$key, t$dssp$goods_info> goods_info(0.5, 20);
+	Skiplist<Key, t$dssp$goods_info> goods_info(0.5, 20);
 
 	// 1. 예외처리.
 	if ( store_name )
@@ -209,10 +149,11 @@ t$dssp$store f$dssp$newStore( const char*const store_name )
 // -- 물품 정가 설정.
 // price는 uint32_t 범위의 모든 수.
 // 정상 작업 시 1을, 예외처리 시 0을 반환함.
-int f$dssp$setPrice( const char*const key_name, const uint64_t price )
+int f$dssp$setPrice( t$dssp$store store, char*const key_name, const uint64_t price )
 {
 	// 0. 선언.
 	t$dssp$goods_info* selected_goods = 0;
+	Skiplist<Key,t$dssp$goods_info>::Node* tmp = 0;
 	
 	// 1. 예외처리.
 	if ( key_name )
@@ -221,9 +162,10 @@ int f$dssp$setPrice( const char*const key_name, const uint64_t price )
 	KEEP:;
 
 	// 2. 물품 정보 객체 포인터 가져오기.
-	selected_goods = __find(key_name);
+	tmp = store.dict.find(Key(key_name));
 	// 찾기 실패 예외처리.
-	if ( !selected_goods ) goto SKIP;
+	if ( !tmp ) goto SKIP;
+	selected_goods = tmp->value;
 
 	// 3. 물품 정가 업데이트.
 	selected_goods->price = price;
@@ -236,26 +178,103 @@ int f$dssp$setPrice( const char*const key_name, const uint64_t price )
 
 
 // -- 물품 추가 증정량 설정.
-/// "n + m, n개 사면 m개 더 줍니다."
+/// "n + 1, n개 사면 1개 더 줍니다."
+// ken_name, n이 0인 경우 예외처리.
 // 정상 작업 시 1을, 예외처리 시 0을 반환함.
-int f$dssp$setGifts( t$dssp$store store, char*const key_name, const uint8_t n, const uint8_t m )
+int f$dssp$setGifts( t$dssp$store store, char*const key_name, const uint8_t n )
 {
 	// 0. 선언.
-	std::pair<t$dssp$key,t$dssp$goods_info> get_pair = 0;
 	t$dssp$goods_info* selected_goods = 0;
 	t$dssp$key goods_name = {.key = key_name};
+	Skiplist<t$dssp$key,t$dssp$goods_info>::Node* get_goods;
 	
 	// 1. 예외처리.	
 	if ( key_name )
-	if ( n & m )
+	if ( n )
 	goto KEEP;
 	goto SKIP;
 	KEEP:;
 
 	// 2. 물품 객체 포인터 가져오기.
-	auto get = store.dict.find(goods_name);
+	get_goods = store.dict.find(goods_name);
+	// 존재하지 않으면 예외처리.
+	if ( get_goods == 0 ) goto SKIP;
+
+	// 3. 증정량 업데이트.
+	get_goods->value.additional_n = n;
+
+	// 4. 성공 여부 반환.
+	return( 1 );
 	// 예외처리.
-	if (  )
+	SKIP:return( 0 );
+}
+
+
+// -- 상품 추가.
+int f$dssp$insertGoodsInfo( t$dssp$store store, char*const key_name, t$dssp$goods_info goods_info )
+{
+    // 1. 예외처리.
+    if ( key_name != 0 ) return( 0 );
+
+    // 2. 키값으로 변환.
+	Key goods_name(key_name);
+
+    // 3. 해당 키 값 존재하는지 찾기.
+    auto tmp = store.dict.find(goods_name);
+    if ( tmp == nullptr ) return( 0 );
+
+    // 4. 삽입.
+    store.dict.insert(goods_name, f$dssp$newProductInfo(price));
+    return 1;
+}
+
+// -- 상품 삭제.
+int f$dssp$RemoveGoodsInfo( t$dssp$store store, char*const key_name )
+{
+    // 1. 예외처리.
+    if ( key_name != 0 ) return( 0 );
+
+    // 2. 키값으로 변환.
+	Key goods_name(key_name);
+	
+    // 3. 해당 키 값 존재하는지 찾기.
+    auto tmp = store.dict.find(goods_name);
+    if ( tmp == nullptr ) return( 0 );
+
+    // 4. 삭제.
+    store.dict.remove(goods_name);
+    return 1;
+}
+
+
+// -- 상품 이름 변경.
+int f$dssp$renameGoods( t$dssp$store store, char*const key_name, char*const rename )
+{
+	// 0. 선언.
+	t$dssp$goods_info* selected_goods = 0;
+	Key goods_name(key_name);
+	t$dssp$goods_info tmp_goods = { 0 };
+	
+	// 1. 예외처리.
+	if ( key_name )
+	if ( rename )
+	goto KEEP;
+	goto SKIP;
+	KEEP:;
+
+	// 2. 해당 키가 존재하는 지 확인.
+	selected_goods = &(store.dict.find(goods_name)->value);
+	// 해당 키가 없으면 예외처리.
+	if ( selected_goods == 0 ) goto SKIP;
+
+	// 3. 지우기 전에 물품 정보 객체 복사해두기.
+	tmp_goods = *selected_goods;
+
+	// 4. 키 지우기.
+	f$dssp$RemoveGoodsInfo(store, key_name);
+
+	// 5. rename으로 물품 정보 객체 생성.
+	f$dssp$insertGoodsInfo(store, rename, );
 }
 
 
