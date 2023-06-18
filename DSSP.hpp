@@ -15,6 +15,7 @@
 #include <string.h>
 #include <malloc.h>
 #include <map>
+#include "./skiplist.hpp"
 
 
 // --[[ interface ]]
@@ -27,6 +28,7 @@ struct t$dssp$key{
         return 0;
     }
 };
+
 
 // -- 상품 정보.
 typedef struct t$dssp$goods_info
@@ -63,7 +65,8 @@ typedef struct t$dssp$store
 	// 재고 종류 개수.
 	uint32_t total_goods;
 	// 재고 딕셔너리 객체.
-	std::map<t$dssp$key, t$dssp$goods_info> dict;
+	// std::map<t$dssp$key, t$dssp$goods_info> dict;
+	Skiplist<t$dssp$key, t$dssp$goods_info> dict;
 } t$dssp$store;
 
 
@@ -172,6 +175,7 @@ t$dssp$store f$dssp$newStore( const char*const store_name )
 	// 0. 선언.
 	char* store_name_copy = 0;
 	int get_strlen = 0;
+	Skiplist<t$dssp$key, t$dssp$goods_info> goods_info(0.5, 20);
 
 	// 1. 예외처리.
 	if ( store_name )
@@ -196,6 +200,7 @@ t$dssp$store f$dssp$newStore( const char*const store_name )
 		(t$dssp$store)
 		{
 			.store_name = store_name_copy,
+			.dict = goods_info,
 		}
 	);
 }
@@ -233,10 +238,12 @@ int f$dssp$setPrice( const char*const key_name, const uint64_t price )
 // -- 물품 추가 증정량 설정.
 /// "n + m, n개 사면 m개 더 줍니다."
 // 정상 작업 시 1을, 예외처리 시 0을 반환함.
-int f$dssp$setGifts( const char*const key_name, const uint8_t n, const uint8_t m )
+int f$dssp$setGifts( t$dssp$store store, char*const key_name, const uint8_t n, const uint8_t m )
 {
 	// 0. 선언.
+	std::pair<t$dssp$key,t$dssp$goods_info> get_pair = 0;
 	t$dssp$goods_info* selected_goods = 0;
+	t$dssp$key goods_name = {.key = key_name};
 	
 	// 1. 예외처리.	
 	if ( key_name )
@@ -246,7 +253,9 @@ int f$dssp$setGifts( const char*const key_name, const uint8_t n, const uint8_t m
 	KEEP:;
 
 	// 2. 물품 객체 포인터 가져오기.
-	
+	auto get = store.dict.find(goods_name);
+	// 예외처리.
+	if (  )
 }
 
 
