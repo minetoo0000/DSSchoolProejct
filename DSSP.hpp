@@ -29,15 +29,15 @@ typedef struct t$dssp$goods_info
 	
 	// 재고 수.
 	uint32_t count;
-	// 물품 총 재고추가량.
+	// 물품 총 재고 추가량.
 	uint32_t total_upcount;
 	// 물품 총 재고 소진량.
 	uint32_t total_downcount;
-	// 물품 총 솔신량.
+	// 물품 총 재고 손실량.
 	uint64_t total_losscount;
 
 	// 물품 총 판매액
-	uint64_t total_sales;
+	// uint64_t total_sales;
 
 	// 추가 증정량. "n+1 할인 중"
 	uint8_t additional_n;
@@ -48,18 +48,23 @@ typedef struct t$dssp$store
 {
 	// 지점 이름.
 	char* store_name;
+
 	// 총 판매 개수.
 	uint32_t total_sales_count;
-	// 총 판매 액수.
-	uint64_t total_sales_price;
-	// 행사가 적용 상품 총 판매 개수.
-	uint32_t total_sold_count;
 	// 손실된 상품 총 개수.
 	uint32_t total_loss_count;
+	// 행사가 적용 상품 총 판매 개수.
+	uint32_t total_gifts_count;
+
+	// 총 판매 액수.
+	uint64_t total_sales_price;
+	// 총 손실 액수.
+	uint64_t total_losses;
+
 	// 재고 종류 개수.
 	uint32_t total_goods;
+
 	// 재고 딕셔너리 객체.
-	// std::map<t$dssp$key, t$dssp$goods_info> dict;
 	Skiplist<Key, t$dssp$goods_info> dict;
 } t$dssp$store;
 
@@ -204,29 +209,28 @@ int f$dssp$setPrice( t$dssp$store store, char*const key_name, const uint64_t pri
 
 // -- 물품 추가 증정량 설정.
 /// "n + 1, n개 사면 1개 더 줍니다."
-// ken_name, n이 0인 경우 예외처리.
+// ken_name, n이 0인 경우 증정 할인 적용되지 않음.
 // 정상 작업 시 1을, 예외처리 시 0을 반환함.
 int f$dssp$setGifts( t$dssp$store store, char*const key_name, const uint8_t n )
 {
 	// 0. 선언.
 	t$dssp$goods_info* selected_goods = 0;
-	t$dssp$key goods_name = {.key = key_name};
-	Skiplist<t$dssp$key,t$dssp$goods_info>::Node* get_goods;
+	Key goods_name(key_name);
+	t$dssp$node* get_node;
 	
 	// 1. 예외처리.	
 	if ( key_name )
-	if ( n )
 	goto KEEP;
 	goto SKIP;
 	KEEP:;
 
 	// 2. 물품 객체 포인터 가져오기.
-	get_goods = store.dict.find(goods_name);
+	get_node = store.dict.find(goods_name);
 	// 존재하지 않으면 예외처리.
-	if ( get_goods == 0 ) goto SKIP;
+	if ( get_node == 0 ) goto SKIP;
 
 	// 3. 증정량 업데이트.
-	get_goods->value.additional_n = n;
+	get_node->value.additional_n = n;
 
 	// 4. 성공 여부 반환.
 	return( 1 );
@@ -239,17 +243,17 @@ int f$dssp$setGifts( t$dssp$store store, char*const key_name, const uint8_t n )
 int f$dssp$insertGoodsInfo( t$dssp$store store, char*const key_name, t$dssp$goods_info goods_info )
 {
     // 1. 예외처리.
-    if ( key_name != 0 ) return( 0 );
+    if ( key_name == 0 ) return 0;
 
     // 2. 키값으로 변환.
 	Key goods_name(key_name);
 
     // 3. 해당 키 값 존재하는지 찾기.
     auto tmp = store.dict.find(goods_name);
-    if ( tmp == nullptr ) return( 0 );
+    if ( tmp == nullptr ) return 0;
 
     // 4. 삽입.
-    store.dict.insert(goods_name, f$dssp$newGoodsInfo(price));
+    store.dict.insert(goods_name, goods_info);
     return 1;
 }
 
@@ -257,7 +261,7 @@ int f$dssp$insertGoodsInfo( t$dssp$store store, char*const key_name, t$dssp$good
 int f$dssp$RemoveGoodsInfo( t$dssp$store store, char*const key_name )
 {
     // 1. 예외처리.
-    if ( key_name != 0 ) return( 0 );
+    if ( key_name == 0 ) return( 0 );
 
     // 2. 키값으로 변환.
 	Key goods_name(key_name);
@@ -279,6 +283,8 @@ int f$dssp$renameGoods( t$dssp$store store, char*const key_name, char*const rena
 	t$dssp$goods_info* selected_goods = 0;
 	Key goods_name(key_name);
 	t$dssp$goods_info tmp_goods = { 0 };
+	// 성공 상태.
+	int state = 1;
 	
 	// 1. 예외처리.
 	if ( key_name )
@@ -296,15 +302,34 @@ int f$dssp$renameGoods( t$dssp$store store, char*const key_name, char*const rena
 	tmp_goods = *selected_goods;
 
 	// 4. 키 지우기.
-	f$dssp$RemoveGoodsInfo(store, key_name);
+	state &= f$dssp$RemoveGoodsInfo(store, key_name);
 
-	// 5. rename으로 물품 정보 객체 생성.
-	f$dssp$insertGoodsInfo(store, rename, );
+	// 5. rename을 키값으로 물품 정보 객체 생성 및 매점에 삽입.
+	state &= f$dssp$insertGoodsInfo(store, rename, tmp_goods);
+
+	// 6. 성공 여부 반환.
+	return( state );
+	// 예외처리.
+	SKIP:return( 0 );
+}
+
+
+// -- 할인이 적용된 물품의 개수 구하기 함수.
+uint32_t f$dssp$numberOfDiscount( const t$dssp$goods_info goods, const uint32_t buy_number )
+{
+	// 0. 선언.
+	uint32_t result_count = 0;
+
+	// 1. 계산하기.
+	result_count = buy_number%(goods.additional_n+1);
+	// ((buy_number/goods.additional_n)*goods.additional_m);
+
+	// 2. 증정품 개수 반환.
+	return( result_count );
 }
 
 
 // -- 할인이 적용된 가격 구하기 함수.
-///////////////////////// 할인 증정량 구하기에서 막힘.
 uint64_t f$dssp$priceOfDiscount( const t$dssp$goods_info goods, const uint32_t buy_number )
 {
 	// 0. 선언.
@@ -314,27 +339,10 @@ uint64_t f$dssp$priceOfDiscount( const t$dssp$goods_info goods, const uint32_t b
 	if ( !buy_number ) goto SKIP;
 
 	// 2. 구하기.
-	// (buy_number/goods.additional_n)*goods.additional_m
-	/
-}
+	result_price = goods.price*(buy_number-f$dssp$numberOfDiscount(goods, buy_number));
 
-
-// -- 할인이 적용된 물품의 개수 구하기 함수.
-///////////////////////// 할인 증정량 구하기에서 막힘.
-uint32_t f$dssp$numberOfDiscount( const t$dssp$goods_info goods, const uint32_t buy_number )
-{
-	// 0. 선언.
-	uint32_t result = 0;
-
-	// 1. 전체 개수 중 증정품 개수 계산.
-	if ( buy_number%goods.additional_n )
-	{
-		/
-	}
-	((buy_number/goods.additional_n)*goods.additional_m);
-
-	// 2. 증정품 개수 반환.
-	return( result );
+	// 3. 가격 반환.
+	SKIP:return( result_price );
 }
 
 
@@ -408,15 +416,30 @@ uint32_t f$dssp$base$storeTotalSalesAdditional( const t$dssp$store store, const 
 }
 
 
+// -- base - 매장 - 총 판매액 추가 함수.
+// 예외를 검사하지 않는 함수.
+// 넘겨받은 매점 객체의 값을 수정함.
+// 추가된 후의 금액을 반환함.
+uint64_t f$dssp$base$addTotalPrice( t$dssp$store* store_p, const uint64_t add_price )
+{
+	// 1. 추가하기.
+	store_p->total_sales_price += add_price;
+
+	// 2. 종료.
+	SKIP:return( store_p->total_sales_price );
+}
+
+
 // -- 재고 n개 추가.
 // 키에 해당하는 물품의 재고를 n개 추가한 매점 객체를 반환함.
 // 예외처리 시 store 반환됨.
-t$dssp$store f$dssp$goodsAdditional( const t$dssp$store store, const char*const key_name, const uint32_t n )
+t$dssp$store f$dssp$goodsAdditional( t$dssp$store store, char*const key_name, const uint32_t n )
 {
 	// 0. 선언.
 	t$dssp$store result_store = store;
-	t$dssp$goods_info* current_goods = 0;
+	t$dssp$goods_info* selected_goods = { 0 };
 	uint32_t updated_count = 0;
+	t$dssp$node* get_node = 0;
 	
 	// 1. 예외처리.
 	if ( n )
@@ -426,18 +449,20 @@ t$dssp$store f$dssp$goodsAdditional( const t$dssp$store store, const char*const 
 	KEEP:;
 
 	// 2. 물품 이름으로 물품 정보 객체 포인터 가져오기.
-	current_goods = __find(key_name);
+	get_node = store.dict.find(Key(key_name));
 	// 널 포인터 시 예외처리.
-	if ( !current_goods ) goto SKIP;
+	if ( get_node == 0 ) goto SKIP;
+	// 포인터 적용하기.
+	selected_goods = &get_node->value;
 
 	// 3. 추가된 량 구하기.
-	updated_count = f$dssp$base$goodsAdditional(*current_goods, n);
+	updated_count = f$dssp$base$goodsAdditional(*selected_goods, n);
 
 	// 4. 딕셔너리의 재고량 업데이트.
-	current_goods->count = updated_count;
+	selected_goods->count = updated_count;
 
 	// 5. 매점 판매 개수 적용하기.
-	result_store.total_sales_count += updated_count - current_goods->count;
+	result_store.total_sales_count += updated_count - selected_goods->count;
 
 	// 6. 매점 객체 반환.
 	SKIP:return( result_store );
@@ -445,15 +470,16 @@ t$dssp$store f$dssp$goodsAdditional( const t$dssp$store store, const char*const 
 
 
 // -- 재고 n개 손실.
-// 키에 해당하는 물품의 재고를 n개 감소함. 손실에 포함됨.
+// 키에 해당하는 물품의 재고를 n개 손실시킴.
 // 예외처리 시 변경 사항 없음, store 반환됨.
 // f$dssp$goodsDecline 함수에 종속됨.
-t$dssp$store f$dssp$goodsLoss( const t$dssp$store store, const char*const key_name, const uint32_t n )
+t$dssp$store f$dssp$goodsLoss( t$dssp$store store, char*const key_name, const uint32_t n )
 {
 	// 0. 선언.
 	t$dssp$store result_store = store;
-	t$dssp$goods_info* current_goods = 0;
+	t$dssp$goods_info* selected_goods = 0;
 	uint32_t updated_count = 0;
+	t$dssp$node* get_node = 0;
 	
 	// 1. 예외처리.
 	if ( n )
@@ -463,19 +489,21 @@ t$dssp$store f$dssp$goodsLoss( const t$dssp$store store, const char*const key_na
 	KEEP:;
 	
 	// 2. 물품 이름으로 물품 정보 객체 포인터 받기.
-	current_goods = __find(key_name);
+	get_node = store.dict.find(Key(key_name));
 	// 널 포인터 시 예외처리.
-	if ( !current_goods ) goto SKIP;
+	if ( get_node == 0 ) goto SKIP;
+	// 포인터 적용하기.
+	selected_goods = &get_node->value;
 
 	// 3. 감소된 재고량 가져오기.
 	// 예외처리로 인해 값이 변경되지 않을 수 있다.
-	updated_count = f$dssp$base$goodsDecline(*current_goods, n);
+	updated_count = f$dssp$base$goodsDecline(*selected_goods, n);
 	
 	// 4. 적용된 손실된 량 구하기.
-	result_store.total_loss_count += current_goods->count - updated_count;
+	result_store.total_loss_count += selected_goods->count - updated_count;
 
 	// 5. 딕셔너리의 재고량 업데이트.
-	current_goods->count = updated_count;
+	selected_goods->count = updated_count;
 
 	// 6. 매점 객체 반환.
 	SKIP:return( result_store );
@@ -483,10 +511,12 @@ t$dssp$store f$dssp$goodsLoss( const t$dssp$store store, const char*const key_na
 
 
 // -- 물품 구매하기 함수.
-t$dssp$store f$dssp$buyGoods( const t$dssp$store store, const char*const key_name, const uint32_t buy_number )
+t$dssp$store f$dssp$buyGoods( t$dssp$store store, char*const key_name, const uint32_t buy_number )
 {
 	// 0. 선언.
 	t$dssp$store result_store = store;
+	t$dssp$node* get_node = 0;
+	t$dssp$goods_info* selected_goods = 0;
 	
 	// 1. 예외처리.
 	if ( buy_number )
@@ -495,8 +525,47 @@ t$dssp$store f$dssp$buyGoods( const t$dssp$store store, const char*const key_nam
 	goto SKIP;
 	KEEP:;
 
+	// 2. 물품 정보 객체 포인터 구하기.
+	get_node = store.dict.find(Key(key_name));
+	// 예외처리.
+	if ( get_node == 0 ) goto SKIP;
+	// 포인터 적용시키기.
+	selected_goods = &get_node->value;
+
 	// 2. 구매로 인해 buy_number 만큼 재고 소진.
-	result_store = f$dssp$goodsLoss(result_store, key_name, buy_number);
+	// 총 판매 개수. 행사가 적용 총 판매 개수.
+	// 총 판매 액수. 행사가 적용 총 판매 액수.
+	{
+		// 0. 선언.
+		uint32_t gifts_count = 0;
+		uint64_t gifts_price = 0;
+		uint32_t updated_count = 0;
+		
+		// 1. 증정품 개수 구하기.
+		gifts_count = f$dssp$numberOfDiscount(*selected_goods, buy_number);
+		// 2. 할인된 비용 구하기.
+		gifts_price = f$dssp$priceOfDiscount(*selected_goods, buy_number);
+
+		// 3. 감소된 개수 구하기.
+		updated_count = f$dssp$base$goodsDecline(*selected_goods, buy_number);
+		// 4. 총 판매 개수 업데이트.
+		result_store.total_sales_count += selected_goods->count - updated_count;
+		// 5. 물품 객체 정보 업데이트.
+		// 카운트 중인 감소되는 재고 개수.
+		selected_goods->total_downcount += selected_goods->count - updated_count;
+		// 현재 재고 개수.
+		selected_goods->count = updated_count;
+
+		// 6. 총 판매 액수 업데이트.
+		// 단순히 개수만큼 더해주는 것이 아님.
+		// 증정되는 개수를 제외한 개수 만큼만 계산에 적용된다.
+		// 선택된 물품의 가격을 곱한다.
+		// 다만 증정품 개수는 제외해서 가격에 곱할 것.
+		f$dssp$base$addTotalPrice(&result_store, selected_goods->price*(buy_number-gifts_count));
+
+		// 7. 행사가 적용 총 판매 액수 업데이트.
+		
+	}
 
 	// 3. 
 }
