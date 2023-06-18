@@ -29,14 +29,6 @@ class Skiplist{
         return ret;
     }
 
-    public:
-    Skiplist(float _p, unsigned long _maxH){
-        maxH = _maxH;
-        p = _p;
-        head->l.resize(maxH);
-        head->h = maxH;
-    }
-    
     Node* find(TK x, Vector<Node*> & path){
         Node *cur = head;
         for(int i = maxH - 1; i >= 0; i--){
@@ -46,6 +38,14 @@ class Skiplist{
             path[i] = cur;
         }
         return cur->l[0];
+    }
+
+    public:
+    Skiplist(float _p, unsigned long _maxH){
+        maxH = _maxH;
+        p = _p;
+        head->l.resize(maxH);
+        head->h = maxH;
     }
 
     Node* find(TK x){
