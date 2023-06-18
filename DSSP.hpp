@@ -1,3 +1,5 @@
+#pragma once
+
 /**
  * DSSP.hpp
  * 선린여학원 매점 재고 관리 프로그램 라이브러리
@@ -24,14 +26,19 @@ typedef struct t$dssp$goods_info
 {
 	// 가격.
 	uint32_t price;
+	
 	// 재고 수.
 	uint32_t count;
 	// 물품 총 재고추가량.
 	uint32_t total_upcount;
 	// 물품 총 재고 소진량.
 	uint32_t total_downcount;
+	// 물품 총 솔신량.
+	uint64_t total_losscount;
+
 	// 물품 총 판매액
 	uint64_t total_sales;
+
 	// 추가 증정량. "n+1 할인 중"
 	uint8_t additional_n;
 } t$dssp$goods_info;
@@ -56,6 +63,8 @@ typedef struct t$dssp$store
 	Skiplist<Key, t$dssp$goods_info> dict;
 } t$dssp$store;
 
+typedef Skiplist<Key,t$dssp$goods_info>::Node t$dssp$node;
+
 
 // -- 매점 재고 정보 및 현황 출력 예시.
 /**
@@ -77,8 +86,6 @@ typedef struct t$dssp$store
  *     물품 총 손실량 : 0개
  *     물품 총 손실액 : 0원
  *     물품 총 판매액 : 9000원
- *     [ 행사중! ]
- *     상품 할인가 : 750원 (50% 할인)
  * 
  * [ "환타 오렌지향" ]
  *     상품 정가 : 1400원
@@ -113,7 +120,7 @@ typedef struct t$dssp$store
 
 // --[[ function ]]
 // -- 새 재고 정보.
-t$dssp$goods_info f$dssp$newProductInfo( const uint32_t price)
+t$dssp$goods_info f$dssp$newGoodsInfo( const uint32_t price)
 {
 	return(
 		(t$dssp$goods_info)
@@ -170,7 +177,7 @@ int f$dssp$setPrice( t$dssp$store store, char*const key_name, const uint64_t pri
 {
 	// 0. 선언.
 	t$dssp$goods_info* selected_goods = 0;
-	Skiplist<Key,t$dssp$goods_info>::Node* tmp = 0;
+	t$dssp$node* tmp = 0;
 	
 	// 1. 예외처리.
 	if ( key_name )
@@ -182,7 +189,8 @@ int f$dssp$setPrice( t$dssp$store store, char*const key_name, const uint64_t pri
 	tmp = store.dict.find(Key(key_name));
 	// 찾기 실패 예외처리.
 	if ( !tmp ) goto SKIP;
-	selected_goods = tmp->value;
+	// 해당 value 포인터 꺼내기.
+	selected_goods = &tmp->value;
 
 	// 3. 물품 정가 업데이트.
 	selected_goods->price = price;
@@ -241,7 +249,7 @@ int f$dssp$insertGoodsInfo( t$dssp$store store, char*const key_name, t$dssp$good
     if ( tmp == nullptr ) return( 0 );
 
     // 4. 삽입.
-    store.dict.insert(goods_name, f$dssp$newProductInfo(price));
+    store.dict.insert(goods_name, f$dssp$newGoodsInfo(price));
     return 1;
 }
 
