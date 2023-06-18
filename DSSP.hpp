@@ -12,10 +12,22 @@
 
 // --[[ include ]]
 #include <stdint.h>
+#include <string.h>
 #include <malloc.h>
+#include <map>
 
 
 // --[[ interface ]]
+// -- Key
+struct t$dssp$key{
+    char* key;
+    bool operator<(char* other){
+        bool ret = strcmp(key, other);
+        if(ret < 0) return 1;
+        return 0;
+    }
+};
+
 // -- 상품 정보.
 typedef struct t$dssp$goods_info
 {
@@ -51,7 +63,7 @@ typedef struct t$dssp$store
 	// 재고 종류 개수.
 	uint32_t total_goods;
 	// 재고 딕셔너리 객체.
-	/////////////////////////////////////// 스킵리스트 - 딕셔너리 객체.
+	std::map<t$dssp$key, t$dssp$goods_info> dict;
 } t$dssp$store;
 
 
@@ -189,7 +201,57 @@ t$dssp$store f$dssp$newStore( const char*const store_name )
 }
 
 
+// -- 물품 정가 설정.
+// price는 uint32_t 범위의 모든 수.
+// 정상 작업 시 1을, 예외처리 시 0을 반환함.
+int f$dssp$setPrice( const char*const key_name, const uint64_t price )
+{
+	// 0. 선언.
+	t$dssp$goods_info* selected_goods = 0;
+	
+	// 1. 예외처리.
+	if ( key_name )
+	goto KEEP;
+	goto SKIP;
+	KEEP:;
+
+	// 2. 물품 정보 객체 포인터 가져오기.
+	selected_goods = __find(key_name);
+	// 찾기 실패 예외처리.
+	if ( !selected_goods ) goto SKIP;
+
+	// 3. 물품 정가 업데이트.
+	selected_goods->price = price;
+
+	// 4. 성공 여부 반환.
+	return( 1 );
+	// 예외처리.
+	SKIP:return( 0 );
+}
+
+
+// -- 물품 추가 증정량 설정.
+/// "n + m, n개 사면 m개 더 줍니다."
+// 정상 작업 시 1을, 예외처리 시 0을 반환함.
+int f$dssp$setGifts( const char*const key_name, const uint8_t n, const uint8_t m )
+{
+	// 0. 선언.
+	t$dssp$goods_info* selected_goods = 0;
+	
+	// 1. 예외처리.	
+	if ( key_name )
+	if ( n & m )
+	goto KEEP;
+	goto SKIP;
+	KEEP:;
+
+	// 2. 물품 객체 포인터 가져오기.
+	
+}
+
+
 // -- 할인이 적용된 가격 구하기 함수.
+///////////////////////// 할인 증정량 구하기에서 막힘.
 uint64_t f$dssp$priceOfDiscount( const t$dssp$goods_info goods, const uint32_t buy_number )
 {
 	// 0. 선언.
@@ -199,20 +261,27 @@ uint64_t f$dssp$priceOfDiscount( const t$dssp$goods_info goods, const uint32_t b
 	if ( !buy_number ) goto SKIP;
 
 	// 2. 구하기.
-	(buy_number/goods.additional_n)*goods.additional_m
+	// (buy_number/goods.additional_n)*goods.additional_m
+	/
 }
 
 
 // -- 할인이 적용된 물품의 개수 구하기 함수.
 ///////////////////////// 할인 증정량 구하기에서 막힘.
-uint32_t XXf$dssp$numberOfDiscount( const t$dssp$goods_info goods, const uint32_t buy_number )
+uint32_t f$dssp$numberOfDiscount( const t$dssp$goods_info goods, const uint32_t buy_number )
 {
-	// 1. 계산.
+	// 0. 선언.
+	uint32_t result = 0;
+
+	// 1. 전체 개수 중 증정품 개수 계산.
 	if ( buy_number%goods.additional_n )
 	{
 		/
 	}
 	((buy_number/goods.additional_n)*goods.additional_m);
+
+	// 2. 증정품 개수 반환.
+	return( result );
 }
 
 
