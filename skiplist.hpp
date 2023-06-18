@@ -111,11 +111,12 @@ class Skiplist{
         delete(target);
     }
 
-    void print(){
+    void print( void(*const print_callback)(TK key, TV value) ){
         Node* cur = head;
         while(cur->l[0]){
             cur = cur->l[0];
-            cout << "key : " << cur->key << " value : " << cur->value << '\n';
+            // 외부 출력 함수 호출.
+            print_callback(cur->key, cur->value);
         }
     }
 };
