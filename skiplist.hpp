@@ -1,6 +1,33 @@
 #include "vector.hpp"
 #include <random>
 
+struct Key{
+    char* key;
+    bool operator<(Key other){
+        int ret = strcmp(key, other.key);
+        if(ret < 0) return 1;
+        return 0;
+    }
+
+    void operator=(char* c){
+        key = c;
+    }
+
+    Key(){
+        key = nullptr;
+    }
+
+    Key(char* c){
+        key = c;
+    }
+};
+
+ostream& operator<<(ostream& os, const Key& cur)
+{
+    os << cur.key;
+    return os;
+}
+
 template <typename TK, typename TV>
 class Skiplist{
     private:
