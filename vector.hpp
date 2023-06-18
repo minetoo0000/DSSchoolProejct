@@ -19,6 +19,10 @@ class Vector{
         a = (T*)malloc(n * sizeof(T));
     }
 
+    void fill(T x){
+        for(int i = 0; i < end; i++) a[i] = x;
+    }
+
     T& operator[](unsigned long x){
         return a[x];
     }
