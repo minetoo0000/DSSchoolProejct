@@ -10,14 +10,16 @@ class Vector{
 
     public:
     Vector(){
-        a = (T*)malloc(1 * sizeof(T));
+        a = (T*)malloc(sizeof(T));
     }
 
-    Vector(int n){
+    Vector(int _n){
+        n = _n;
+        end = _n;
         a = (T*)malloc(n * sizeof(T));
     }
 
-    T operator[](unsigned long x){
+    T& operator[](unsigned long x){
         return a[x];
     }
 
@@ -28,7 +30,6 @@ class Vector{
     void resize(unsigned long sz){
         if(sz > n){
             while(sz > n) n <<= 1;
-
             T* tmp = (T*)malloc(n * sizeof(T));
             for(int i = 0; i < end; i++){
                 tmp[i] = a[i];
