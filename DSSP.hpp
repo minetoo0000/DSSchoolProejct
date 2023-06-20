@@ -97,67 +97,78 @@ typedef union t$dssp$loop_state
 		// 4. 매점 통계.
 		uint64_t store_status:1;
 
+		// 아무것도 선택하지 않기.
+		uint64_t select_null:1;
+
 		// 확인 불가능한 오류로 인해 다음 작업 처리 실패.
 		uint64_t task_fail:1;
 	} state;
 } t$dssp$loop_state;
+
 // -- 부트 상태.
-const LoopState v$dssp$BOOTTIME = {
+const t$dssp$loop_state v$dssp$BOOTTIME = {
 	.bin=0,
 };
 // -- 기본 상태.
-const LoopState v$dssp$DEFAULT = {
+const t$dssp$loop_state v$dssp$DEFAULT = {
 	.state = {
 		.already_init=1,
 	},
 };
 // -- 조작 도움말.
-const LoopState v$dssp$MENU = {
+const t$dssp$loop_state v$dssp$MENU = {
 	.state = {
 		.already_init=1,
 		.show_menu=1,
 	},
 };
 // -- 오류 상태.
-const LoopState v$dssp$TASK_FAIL = {
+const t$dssp$loop_state v$dssp$TASK_FAIL = {
 	.state = {
 		.already_init=1,
 		.task_fail=1,
 	},
 };
 // -- 0. 물품 리스트.
-const LoopState v$dssp$0SHOW_LIST = {
+const t$dssp$loop_state v$dssp$0SHOW_LIST = {
 	.state = {
 		.already_init=1,
 		.show_list=1,
 	},
 };
 // -- 1. 물품 선택.
-const LoopState v$dssp$1SEELCT = {
+const t$dssp$loop_state v$dssp$1SEELCT = {
 	.state = {
 		.already_init=1,
 		.select=1,
 	},
 };
 // -- 2. 물품 추가.
-const LoopState v$dssp$2ADD = {
+const t$dssp$loop_state v$dssp$2ADD = {
 	.state = {
 		.already_init=1,
 		.add=1,
 	},
 };
 // -- 3. 물품 삭제.
-const LoopState v$dssp$3REMOVE = {
+const t$dssp$loop_state v$dssp$3REMOVE = {
 	.state = {
 		.already_init=1,
 		.remove=1,
 	},
 };
 // -- 4. 매점 통계.
-const LoopState v$dssp$4STORE_STATUS = {
+const t$dssp$loop_state v$dssp$4STORE_STATUS = {
 	.state = {
 		.already_init=1,
 		.store_status=1,
+	},
+};
+// -- 아무것도 선택하지 않기.
+const t$dssp$loop_state v$dssp$SELECT_NULL = {
+	.state = {
+		.already_init=1,
+		.select_null=1,
 	},
 };
 
@@ -347,6 +358,7 @@ int f$dssp$insertGoodsInfo( t$dssp$store store, char*const key_name, t$dssp$good
     store.dict.insert(goods_name, goods_info);
     return 1;
 }
+
 
 // -- 상품 삭제.
 int f$dssp$removeGoodsInfo( t$dssp$store store, char*const key_name )
@@ -633,6 +645,15 @@ t$dssp$store XXf$dssp$buyGoods( t$dssp$store store, char*const key_name, const u
 		uint64_t gifts_price = 0;
 		uint32_t updated_count = 0;
 		
+		/**
+		 * 판매 개수
+		 * 판매 액수
+		 * 증정 개수
+		 * 
+		 * 
+		*/
+		
+		
 		// 1. 증정품 개수 구하기.
 		gifts_count = f$dssp$numberOfDiscount(*selected_goods, buy_number);
 		// 2. 할인된 비용 구하기.
@@ -654,7 +675,6 @@ t$dssp$store XXf$dssp$buyGoods( t$dssp$store store, char*const key_name, const u
 		// 선택된 물품의 가격을 곱한다.
 		// 다만 증정품 개수는 제외해서 가격에 곱할 것.
 		f$dssp$base$addTotalPrice(&result_store, selected_goods->price*(buy_number-gifts_count));
-
 		// 7. 행사가 적용 총 판매 액수 업데이트.
 		
 	}
@@ -695,12 +715,22 @@ int f$dssp$setStoreName( t$dssp$store& store_r, char*const store_name )
 
 
 // -- 메뉴 번호 to 고유 메뉴 번호.
-t$dssp$loop_state f$dssp$numToMenu( const int num )
+t$dssp$loop_state f$dssp$menuidToState( const int num )
 {
 	switch ( num )
 	{
 		// -- 0. 물품 리스트.
-		case 0:return( v$dssp$2ADD );
+		case 0:return( v$dssp$0SHOW_LIST );
+		// -- 1. 물품 선택.
+		case 1:return( v$dssp$1SEELCT );
+		// -- 2. 물품 추가.
+		case 2:return( v$dssp$2ADD );
+		// -- 3. 물품 삭제.
+		case 3:return( v$dssp$3REMOVE );
+		// -- 4. 매점 통계.
+		case 4:return( v$dssp$4STORE_STATUS );
+		// -- error
+		default:return( v$dssp$TASK_FAIL );
 	}
 }
 
@@ -739,7 +769,7 @@ int f$dssp$cli$bootScreen()
 
 
 // -- 조작 메뉴 출력 화면.
-int f$dssp$menuScreen()
+int f$dssp$cli$menuScreen()
 {
 	f$dssp$cli$print("[ 제어 ]",0);
 	f$dssp$cli$print("0.  물품 리스트 : 등록된 물품 정보들을 보여줍니다.",0);
@@ -747,6 +777,20 @@ int f$dssp$menuScreen()
 	f$dssp$cli$print("2.  물품 추가 : 새 물품을 등록합니다.",0);
 	f$dssp$cli$print("3.  물품 제거 : 선택된 물품을 등록에서 완전히 제거합니다.",0);
 	f$dssp$cli$print("4.  매점 통계 : 현재 매점에 대한 통계 정보를 제공합니다.",2);
+	return( 1 );
+}
+
+
+// -- 매점 통계 출력 함수.
+int f$dssp$cli$showStoreStatus( t$dssp$store store )
+{
+	printf("-  [ \"%s\" 지점 통계 ]\n", store.store_name);
+	printf("-  총 판매 개수 : %u개\n", store.total_sales_count);
+	printf("-  총 증정 개수 : %u개\n", store.total_gifts_count);
+	printf("-  총 손실 개수 : %u개\n\n", store.total_loss_count);
+
+	printf("-  총 판매 액수 : %u개\n\n", store.total_sales_price);
+	printf("-  총 손실매 액수 : %u개\n\n", store.total_losses);
 	return( 1 );
 }
 
@@ -764,12 +808,14 @@ struct class$DSSP
 	t$dssp$store(*const goodsAdditional)( t$dssp$store store, char*const key_name, const uint32_t n );
 	t$dssp$store(*const goodsLoss)( t$dssp$store store, char*const key_name, const uint32_t n );
 	int(*const setStoreName)( t$dssp$store& store_r, char*const store_name );
+	t$dssp$loop_state(*const menuidToState)( const int num );
 	struct Cli
 	{
 		int(*const print)( const char*const str, int return_n );
 		int(*const read)( const char*const prompt_str, int& num );
 		int(*const bootScreen)();
 		int(*const menuScreen)();
+		int(*const showStoreStatus)( t$dssp$store store );
 	} cli;
 } DSSP = {
 	.newGoodsInfo = f$dssp$newGoodsInfo,
@@ -782,11 +828,13 @@ struct class$DSSP
 	.goodsAdditional = f$dssp$goodsAdditional,
 	.goodsLoss = f$dssp$goodsLoss,
 	.setStoreName = f$dssp$setStoreName,
+	.menuidToState = f$dssp$menuidToState,
 	.cli = {
 		.print = f$dssp$cli$print,
 		.read = f$dssp$cli$read,
 		.bootScreen = f$dssp$cli$bootScreen,
-		.menuScreen = f$dssp$menuScreen,
+		.menuScreen = f$dssp$cli$menuScreen,
+		.showStoreStatus = f$dssp$cli$showStoreStatus,
 	},
 };
 
@@ -795,6 +843,7 @@ struct class$DSSP
 typedef t$dssp$loop_state LoopState;
 typedef t$dssp$goods_info GoodsInfo;
 typedef t$dssp$store Store;
+typedef t$dssp$node Node;
 
 // -- 부트 상태.
 const LoopState dssp_BOOTTIME = v$dssp$BOOTTIME;
@@ -804,9 +853,6 @@ const LoopState dssp_DEFAULT = v$dssp$DEFAULT;
 
 // -- 조작 도움말.
 const LoopState dssp_MENU = v$dssp$MENU;
-
-// -- 메뉴 처리 - 물품 리스트.
-const LoopState dssp_SHOW_LIST = v$dssp$0SHOW_LIST;
 
 // -- 오류 상태.
 const LoopState dssp_TASK_FAIL = v$dssp$TASK_FAIL;
@@ -820,11 +866,13 @@ const LoopState dssp_SELECT = v$dssp$1SEELCT;
 // -- 2. 물품 추가.
 const LoopState dssp_ADD = v$dssp$2ADD;
 
-// -- 3. 물품 추가.
-const LoopState dssp_ADD = v$dssp$2ADD;
-
 // -- 3. 물품 삭제.
 const LoopState dssp_REMOVE = v$dssp$3REMOVE;
 
+// -- 4. 매점 통계.
+const LoopState dssp_STORE_STATUS = v$dssp$4STORE_STATUS;
+
+// -- 아무것도 선택하지 않음.
+const LoopState dssp_SELECT_NULL = v$dssp$SELECT_NULL;
 
 #endif
