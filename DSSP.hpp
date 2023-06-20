@@ -10,6 +10,7 @@
 
 // --[[ setting ]]
 // #define USING_DSSP
+#define VERSION_DSSP "1.0"
 
 
 // --[[ include ]]
@@ -68,7 +69,97 @@ typedef struct t$dssp$store
 	Skiplist<Key, t$dssp$goods_info> dict;
 } t$dssp$store;
 
+
+// -- 단축 정의.
 typedef Skiplist<Key,t$dssp$goods_info>::Node t$dssp$node;
+
+
+// -- 명령 인터페이스 상태 구조체.
+typedef union t$dssp$loop_state
+{
+	uint64_t bin;
+
+	struct State
+	{
+		// 기본 사용자 설정 마침.
+		uint64_t already_init:1;
+		// 메뉴 띄우기.
+		uint64_t show_menu:1;
+
+		// 0. 물품 리스트.
+		uint64_t show_list:1;
+		// 1. 물품 선택.
+		uint64_t select:1;
+		// 2. 물품 추가.
+		uint64_t add:1;
+		// 3. 물품 삭제.
+		uint64_t remove:1;
+		// 4. 매점 통계.
+		uint64_t store_status:1;
+
+		// 확인 불가능한 오류로 인해 다음 작업 처리 실패.
+		uint64_t task_fail:1;
+	} state;
+} t$dssp$loop_state;
+// -- 부트 상태.
+const LoopState v$dssp$BOOTTIME = {
+	.bin=0,
+};
+// -- 기본 상태.
+const LoopState v$dssp$DEFAULT = {
+	.state = {
+		.already_init=1,
+	},
+};
+// -- 조작 도움말.
+const LoopState v$dssp$MENU = {
+	.state = {
+		.already_init=1,
+		.show_menu=1,
+	},
+};
+// -- 오류 상태.
+const LoopState v$dssp$TASK_FAIL = {
+	.state = {
+		.already_init=1,
+		.task_fail=1,
+	},
+};
+// -- 0. 물품 리스트.
+const LoopState v$dssp$0SHOW_LIST = {
+	.state = {
+		.already_init=1,
+		.show_list=1,
+	},
+};
+// -- 1. 물품 선택.
+const LoopState v$dssp$1SEELCT = {
+	.state = {
+		.already_init=1,
+		.select=1,
+	},
+};
+// -- 2. 물품 추가.
+const LoopState v$dssp$2ADD = {
+	.state = {
+		.already_init=1,
+		.add=1,
+	},
+};
+// -- 3. 물품 삭제.
+const LoopState v$dssp$3REMOVE = {
+	.state = {
+		.already_init=1,
+		.remove=1,
+	},
+};
+// -- 4. 매점 통계.
+const LoopState v$dssp$4STORE_STATUS = {
+	.state = {
+		.already_init=1,
+		.store_status=1,
+	},
+};
 
 
 // -- 매점 재고 정보 및 현황 출력 예시.
@@ -258,7 +349,7 @@ int f$dssp$insertGoodsInfo( t$dssp$store store, char*const key_name, t$dssp$good
 }
 
 // -- 상품 삭제.
-int f$dssp$RemoveGoodsInfo( t$dssp$store store, char*const key_name )
+int f$dssp$removeGoodsInfo( t$dssp$store store, char*const key_name )
 {
     // 1. 예외처리.
     if ( key_name == 0 ) return( 0 );
@@ -302,7 +393,7 @@ int f$dssp$renameGoods( t$dssp$store store, char*const key_name, char*const rena
 	tmp_goods = *selected_goods;
 
 	// 4. 키 지우기.
-	state &= f$dssp$RemoveGoodsInfo(store, key_name);
+	state &= f$dssp$removeGoodsInfo(store, key_name);
 
 	// 5. rename을 키값으로 물품 정보 객체 생성 및 매점에 삽입.
 	state &= f$dssp$insertGoodsInfo(store, rename, tmp_goods);
@@ -511,7 +602,8 @@ t$dssp$store f$dssp$goodsLoss( t$dssp$store store, char*const key_name, const ui
 
 
 // -- 물품 구매하기 함수.
-t$dssp$store f$dssp$buyGoods( t$dssp$store store, char*const key_name, const uint32_t buy_number )
+///////////////////////// 미완성.
+t$dssp$store XXf$dssp$buyGoods( t$dssp$store store, char*const key_name, const uint32_t buy_number )
 {
 	// 0. 선언.
 	t$dssp$store result_store = store;
@@ -568,4 +660,171 @@ t$dssp$store f$dssp$buyGoods( t$dssp$store store, char*const key_name, const uin
 	}
 
 	// 3. 
+	SKIP:;
 }
+
+
+// -- 매점 시스템 이름 설정.
+// store_name이 0인 경우 unamed 상태가 됨.
+int f$dssp$setStoreName( t$dssp$store& store_r, char*const store_name )
+{
+	// 0. 선언.
+	int len = 0;
+	char* new_str = 0;
+	
+	// 1. 예외처리.
+	if ( store_name == 0 ) goto SKIP;
+	
+	// 2. 문자열 길이 구하기.
+	len = strlen(store_name)+1;
+
+	// 3. 메모리 할당.
+	for ( uint8_t c=0; !( new_str=(char*)malloc(len) ) && c<3; c++ );
+	if ( new_str == 0 ) goto SKIP;
+
+	// 4. 문자열 복사.
+	strcpy(new_str, store_name);
+
+	// 5. 이름 설정.
+	store_r.store_name = new_str;
+
+	// 6. 성공 여부 반환.
+	return( 1 );
+	SKIP:return( 0 );
+}
+
+
+// -- 메뉴 번호 to 고유 메뉴 번호.
+t$dssp$loop_state f$dssp$numToMenu( const int num )
+{
+	switch ( num )
+	{
+		// -- 0. 물품 리스트.
+		case 0:return( v$dssp$2ADD );
+	}
+}
+
+
+// --[[ cli system function ]]
+// -- print + 개행 함수.
+int f$dssp$cli$print( const char*const str, int return_n )
+{
+	int result = 0;
+	
+	result += printf("-  %s\n", str);
+	for ( ; return_n!=0; return_n-- )
+		result += printf("-\n");
+
+	return( result );
+}
+
+
+// -- get num 함수.
+int f$dssp$cli$read( const char*const prompt_str, int& num )
+{
+	f$dssp$cli$print(prompt_str,0);
+	printf(" > "); scanf("%d", &num);
+	f$dssp$cli$print("",0);
+	return( 1 );
+}
+
+
+// -- 시스템 시작 화면.
+int f$dssp$cli$bootScreen()
+{
+	f$dssp$cli$print("매점 재고 관리 시스템", 0);
+	f$dssp$cli$print("관리버전 : " VERSION_DSSP, 2);
+	return( 1 );
+}
+
+
+// -- 조작 메뉴 출력 화면.
+int f$dssp$menuScreen()
+{
+	f$dssp$cli$print("[ 제어 ]",0);
+	f$dssp$cli$print("0.  물품 리스트 : 등록된 물품 정보들을 보여줍니다.",0);
+	f$dssp$cli$print("1.  물품 선택 : 물품의 이름으로 물품을 선택합니다.",0);
+	f$dssp$cli$print("2.  물품 추가 : 새 물품을 등록합니다.",0);
+	f$dssp$cli$print("3.  물품 제거 : 선택된 물품을 등록에서 완전히 제거합니다.",0);
+	f$dssp$cli$print("4.  매점 통계 : 현재 매점에 대한 통계 정보를 제공합니다.",2);
+	return( 1 );
+}
+
+
+// --[[ class ]]
+struct class$DSSP
+{
+	t$dssp$goods_info(*const newGoodsInfo)( const uint32_t price);
+	t$dssp$store(*const newStore)( const char*const store_name );
+	int(*const setPrice)( t$dssp$store store, char*const key_name, const uint64_t price );
+	int(*const setGifts)( t$dssp$store store, char*const key_name, const uint8_t n );
+	int(*const insertGoodsInfo)( t$dssp$store store, char*const key_name, t$dssp$goods_info goods_info );
+	int(*const removeGoodsInfo)( t$dssp$store store, char*const key_name );
+	int(*const renameGoods)( t$dssp$store store, char*const key_name, char*const rename );
+	t$dssp$store(*const goodsAdditional)( t$dssp$store store, char*const key_name, const uint32_t n );
+	t$dssp$store(*const goodsLoss)( t$dssp$store store, char*const key_name, const uint32_t n );
+	int(*const setStoreName)( t$dssp$store& store_r, char*const store_name );
+	struct Cli
+	{
+		int(*const print)( const char*const str, int return_n );
+		int(*const read)( const char*const prompt_str, int& num );
+		int(*const bootScreen)();
+		int(*const menuScreen)();
+	} cli;
+} DSSP = {
+	.newGoodsInfo = f$dssp$newGoodsInfo,
+	.newStore = f$dssp$newStore,
+	.setPrice = f$dssp$setPrice,
+	.setGifts = f$dssp$setGifts,
+	.insertGoodsInfo = f$dssp$insertGoodsInfo,
+	.removeGoodsInfo = f$dssp$removeGoodsInfo,
+	.renameGoods = f$dssp$renameGoods,
+	.goodsAdditional = f$dssp$goodsAdditional,
+	.goodsLoss = f$dssp$goodsLoss,
+	.setStoreName = f$dssp$setStoreName,
+	.cli = {
+		.print = f$dssp$cli$print,
+		.read = f$dssp$cli$read,
+		.bootScreen = f$dssp$cli$bootScreen,
+		.menuScreen = f$dssp$menuScreen,
+	},
+};
+
+#ifdef USING_DSSP
+
+typedef t$dssp$loop_state LoopState;
+typedef t$dssp$goods_info GoodsInfo;
+typedef t$dssp$store Store;
+
+// -- 부트 상태.
+const LoopState dssp_BOOTTIME = v$dssp$BOOTTIME;
+
+// -- 기본 상태.
+const LoopState dssp_DEFAULT = v$dssp$DEFAULT;
+
+// -- 조작 도움말.
+const LoopState dssp_MENU = v$dssp$MENU;
+
+// -- 메뉴 처리 - 물품 리스트.
+const LoopState dssp_SHOW_LIST = v$dssp$0SHOW_LIST;
+
+// -- 오류 상태.
+const LoopState dssp_TASK_FAIL = v$dssp$TASK_FAIL;
+
+// -- 0. 물품 리스트.
+const LoopState dssp_SHOW_LIST = v$dssp$0SHOW_LIST;
+
+// -- 1. 물품 선택.
+const LoopState dssp_SELECT = v$dssp$1SEELCT;
+
+// -- 2. 물품 추가.
+const LoopState dssp_ADD = v$dssp$2ADD;
+
+// -- 3. 물품 추가.
+const LoopState dssp_ADD = v$dssp$2ADD;
+
+// -- 3. 물품 삭제.
+const LoopState dssp_REMOVE = v$dssp$3REMOVE;
+
+
+#endif
