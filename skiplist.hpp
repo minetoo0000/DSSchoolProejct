@@ -17,7 +17,7 @@ struct Key{
     }
 
     Key(){
-        key = "";
+        key = nullptr;
     }
 
     Key(char* c){
