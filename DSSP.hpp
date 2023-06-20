@@ -348,12 +348,17 @@ t$dssp$store f$dssp$insertGoodsInfo( t$dssp$store store, char*const key_name, t$
 {
 	// 0. 선언.
 	t$dssp$store result_store = store;
+	int str_len = 0;
+	char* new_str = 0;
 	
     // 1. 예외처리.
     if ( key_name == 0 ) return result_store;
 
     // 2. 키값으로 변환.
-	Key goods_name(key_name);
+	str_len = strlen(key_name)+1;
+	new_str = (char*)malloc(str_len);
+	strcpy(new_str, key_name);
+	Key goods_name(new_str);
 
     // 3. 해당 키 값 존재하는지 찾기.
     auto tmp = store.dict.find(goods_name);
@@ -823,7 +828,7 @@ int f$dssp$cli$showStoreStatus( t$dssp$store store )
 // -- callback - 물품 재고 정보 출력 함수.
 void f$dssp$cli$callback$printGoodsInfo( Key goods_name, t$dssp$goods_info goods )
 {
-	printf("-  [ \"%s\" ]\n", goods_name);
+	printf("-  [ \"%s\" ]\n", goods_name.key);
 	printf("-    정가 : %u원\n", goods.price);
 	printf("-    남은 재고 수 : %u개\n", goods.count);
 	f$dssp$cli$print("",0);

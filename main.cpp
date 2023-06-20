@@ -127,11 +127,7 @@ int sys()
         cout<<" > "; cin>>goods_name;
         DSSP.cli.print("",0);
 
-
-        /////////////////////// 디버깅코드:1699
-        /*tmp*/ Node* tmp = 0;
-        tmp = store.dict.find(Key(goods_name));
-        if ( tmp != 0 )
+        if ( store.dict.find(Key(goods_name)) != 0 )
         {
             DSSP.cli.print("이미 존재하는 물품입니다.",0);
             DSSP.cli.print("변경사항은 없습니다.",1);

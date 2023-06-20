@@ -16,6 +16,14 @@ struct Key{
         key = c;
     }
 
+    bool operator==(const Key & other){
+        return strcmp(key, other.key) > 0;
+    }
+
+    bool operator!=(const Key & other){
+        return !strcmp(key, other.key);
+    }
+
     Key(){
         key = nullptr;
     }
@@ -87,7 +95,8 @@ class Skiplist{
                 cur = cur->l[i];
             }
         }
-        if(cur->l[0]->key != x) return nullptr;
+        // if(cur->l[0]->key != x) return nullptr;
+        if(cur->l[0] == nullptr || cur->l[0]->key != x) return nullptr;
         return cur->l[0];
     }
 
