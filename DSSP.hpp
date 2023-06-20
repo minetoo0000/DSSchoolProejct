@@ -341,21 +341,31 @@ int f$dssp$setGifts( t$dssp$store store, char*const key_name, const uint8_t n )
 
 
 // -- 상품 추가.
-int f$dssp$insertGoodsInfo( t$dssp$store store, char*const key_name, t$dssp$goods_info goods_info )
+// 해당 매점에 물품 추가됨.
+// 업데이트된 Store 객체를 반환함.
+// 예외처리 시 변경사항 없음, store 반환됨.
+t$dssp$store f$dssp$insertGoodsInfo( t$dssp$store store, char*const key_name, t$dssp$goods_info goods_info )
 {
+	// 0. 선언.
+	t$dssp$store result_store = store;
+	
     // 1. 예외처리.
-    if ( key_name == 0 ) return 0;
+    if ( key_name == 0 ) return result_store;
 
     // 2. 키값으로 변환.
 	Key goods_name(key_name);
 
     // 3. 해당 키 값 존재하는지 찾기.
     auto tmp = store.dict.find(goods_name);
-    if ( tmp == nullptr ) return 0;
+    if ( tmp != nullptr ) return result_store;
 
     // 4. 삽입.
     store.dict.insert(goods_name, goods_info);
-    return 1;
+
+	// 5. 매점 통계 - 물품 종류 수 증가.
+	result_store.total_goods++;
+	
+    return( result_store );
 }
 
 
@@ -407,7 +417,7 @@ int f$dssp$renameGoods( t$dssp$store store, char*const key_name, char*const rena
 	state &= f$dssp$removeGoodsInfo(store, key_name);
 
 	// 5. rename을 키값으로 물품 정보 객체 생성 및 매점에 삽입.
-	state &= f$dssp$insertGoodsInfo(store, rename, tmp_goods);
+	store = f$dssp$insertGoodsInfo(store, rename, tmp_goods);
 
 	// 6. 성공 여부 반환.
 	return( state );
@@ -801,10 +811,29 @@ int f$dssp$cli$showStoreStatus( t$dssp$store store )
 	printf("-  총 증정 개수 : %u개\n", store.total_gifts_count);
 	printf("-  총 손실 개수 : %u개\n", store.total_loss_count);
 	f$dssp$cli$print("",0);
-	printf("-  총 판매 액수 : %u개\n", store.total_sales_price);
-	printf("-  총 손실매 액수 : %u개\n", store.total_losses);
+	printf("-  총 판매 액수 : %u원\n", store.total_sales_price);
+	printf("-  총 손실 액수 : %u원\n", store.total_losses);
 	f$dssp$cli$print("",0);
+	printf("-  물품 종류 개수 : %u개\n", store.total_goods);
+	f$dssp$cli$print("",1);
 	return( 1 );
+}
+
+
+// -- callback - 물품 재고 정보 출력 함수.
+void f$dssp$cli$callback$printGoodsInfo( Key goods_name, t$dssp$goods_info goods )
+{
+	printf("-  [ \"%s\" ]\n", goods_name);
+	printf("-    정가 : %u원\n", goods.price);
+	printf("-    남은 재고 수 : %u개\n", goods.count);
+	f$dssp$cli$print("",0);
+	printf("-    총 재고 추가량 : %u개\n", goods.total_upcount);
+	printf("-    총 재고 손실량 : %u개\n", goods.total_losscount);
+	printf("-    총 재고 소진량 : %u개\n", goods.total_downcount);
+	f$dssp$cli$print("",0);
+	printf("-    총 재고 판매액 : %llu원\n", goods.total_upcount*goods.price);
+	printf("-    총 재고 손실액 : %llu원\n", goods.total_losscount*goods.price);
+	f$dssp$cli$print("",1);
 }
 
 
@@ -815,7 +844,7 @@ struct class$DSSP
 	t$dssp$store(*const newStore)( const char*const store_name );
 	int(*const setPrice)( t$dssp$store store, char*const key_name, const uint64_t price );
 	int(*const setGifts)( t$dssp$store store, char*const key_name, const uint8_t n );
-	int(*const insertGoodsInfo)( t$dssp$store store, char*const key_name, t$dssp$goods_info goods_info );
+	t$dssp$store(*const insertGoodsInfo)( t$dssp$store store, char*const key_name, t$dssp$goods_info goods_info );
 	int(*const removeGoodsInfo)( t$dssp$store store, char*const key_name );
 	int(*const renameGoods)( t$dssp$store store, char*const key_name, char*const rename );
 	t$dssp$store(*const goodsAdditional)( t$dssp$store store, char*const key_name, const uint32_t n );
@@ -830,7 +859,12 @@ struct class$DSSP
 		int(*const bootScreen)();
 		int(*const menuScreen)();
 		int(*const showStoreStatus)( t$dssp$store store );
+		struct Callback
+		{
+			void(*const printGoodsInfo)( Key goods_name, t$dssp$goods_info goods );
+		} callback;
 	} cli;
+
 } DSSP = {
 	.newGoodsInfo = f$dssp$newGoodsInfo,
 	.newStore = f$dssp$newStore,
@@ -850,6 +884,9 @@ struct class$DSSP
 		.bootScreen = f$dssp$cli$bootScreen,
 		.menuScreen = f$dssp$cli$menuScreen,
 		.showStoreStatus = f$dssp$cli$showStoreStatus,
+		.callback = {
+			.printGoodsInfo = f$dssp$cli$callback$printGoodsInfo,
+		}
 	},
 };
 
