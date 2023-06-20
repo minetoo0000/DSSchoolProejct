@@ -623,10 +623,13 @@ t$dssp$store f$dssp$goodsLoss( t$dssp$store store, char*const key_name, const ui
 
 
 // -- 물품 구매하기 함수.
-///////////////////////// 미완성.
 // key에 해당하는 물품 정보를 가져와서, 구매할 물량만큼 재고가 빠지고
 // 매장의 통계치 계산 <- 구현하면 됨 
-t$dssp$store XXf$dssp$buyGoods( t$dssp$store store, char*const key_name, const uint32_t buy_number )
+// 통계치가 업데이트된 Store 객체가 반환됨.
+// 키나 구매 수가 0일 때 예외처리.
+// 키를 발견하지 못한 경우 예외처리.
+// 예외처리 시 store 반환됨.
+t$dssp$store f$dssp$buyGoods( t$dssp$store store, char*const key_name, const uint32_t buy_number )
 {
 	// 0. 선언.
 	t$dssp$store result_store = store;
@@ -818,6 +821,7 @@ struct class$DSSP
 	t$dssp$store(*const goodsLoss)( t$dssp$store store, char*const key_name, const uint32_t n );
 	int(*const setStoreName)( t$dssp$store& store_r, char*const store_name );
 	t$dssp$loop_state(*const menuidToState)( const int num );
+	t$dssp$store(*const buyGoods)( t$dssp$store store, char*const key_name, const uint32_t buy_number );
 	struct Cli
 	{
 		int(*const print)( const char*const str, int return_n );
@@ -838,6 +842,7 @@ struct class$DSSP
 	.goodsLoss = f$dssp$goodsLoss,
 	.setStoreName = f$dssp$setStoreName,
 	.menuidToState = f$dssp$menuidToState,
+	.buyGoods = f$dssp$buyGoods,
 	.cli = {
 		.print = f$dssp$cli$print,
 		.read = f$dssp$cli$read,
