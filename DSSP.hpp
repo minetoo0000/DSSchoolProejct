@@ -799,10 +799,11 @@ int f$dssp$cli$showStoreStatus( t$dssp$store store )
 	printf("-  [ \"%s\" 지점 통계 ]\n", store.store_name);
 	printf("-  총 판매 개수 : %u개\n", store.total_sales_count);
 	printf("-  총 증정 개수 : %u개\n", store.total_gifts_count);
-	printf("-  총 손실 개수 : %u개\n\n", store.total_loss_count);
-
-	printf("-  총 판매 액수 : %u개\n\n", store.total_sales_price);
-	printf("-  총 손실매 액수 : %u개\n\n", store.total_losses);
+	printf("-  총 손실 개수 : %u개\n", store.total_loss_count);
+	f$dssp$cli$print("",0);
+	printf("-  총 판매 액수 : %u개\n", store.total_sales_price);
+	printf("-  총 손실매 액수 : %u개\n", store.total_losses);
+	f$dssp$cli$print("",0);
 	return( 1 );
 }
 

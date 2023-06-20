@@ -30,7 +30,6 @@ int sys()
         DSSP.cli.read("메뉴의 각 번호를 입력하여 선택하세요.", global_menu);
 
         // 3. 메뉴 번호에 대응하는 상태 값으로 상태 업데이트.
-        ///////////////////////////// 함수 제작.
         state = DSSP.menuidToState(global_menu);
     }
 
@@ -46,7 +45,7 @@ int sys()
         DSSP.cli.bootScreen();
 
         // 3. 딜레이.
-        sleep(1);
+        sleep(2);
     }
 
     // -- 도움말 출력.
@@ -109,7 +108,6 @@ int sys()
 
         // 2. 물품 이름 입력받기.
         DSSP.cli.print("새로 추가할 물품의 이름을 입력해주세요.",0);
-        DSSP.cli.print("현재 입력 취소는 빈 문자열로 Enter",0);
         printf(" > ");
         cin>>goods_name;
         DSSP.cli.print("",0);
@@ -147,14 +145,25 @@ int sys()
         DSSP.cli.showStoreStatus(store);
     }
 
+    // -- 약속되지 않은 상태 코드.
+    else
+    {
+        DSSP.cli.print("[ Error ]",0);
+        DSSP.cli.print("뭔가 크게 잘못되었습니다.",0);
+        DSSP.cli.print("Enter를 누르면 프로그램이 재시작 됩니다.",0);
+        getchar();
+        goto RESTART;
+    }
+
     goto LOOP;
 
-    return( 0 );
+    RESTART:return( 1 );
+    RETURN:return( 0 );
 }
 
 
 int main()
 {
-    sys();
+    while ( sys() );
     return( 0 );
 }
