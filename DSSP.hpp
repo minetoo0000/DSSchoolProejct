@@ -16,9 +16,8 @@
 // --[[ include ]]
 #include <stdint.h>
 #include <string.h>
-#include <malloc.h>
 #include <map>
-#include "./skiplist.hpp"
+#include "skiplist.hpp"
 
 
 // --[[ interface ]]
@@ -603,6 +602,8 @@ t$dssp$store f$dssp$goodsLoss( t$dssp$store store, char*const key_name, const ui
 
 // -- 물품 구매하기 함수.
 ///////////////////////// 미완성.
+// key에 해당하는 물품 정보를 가져와서, 구매할 물량만큼 재고가 빠지고
+// 매장의 통계치 계산 <- 구현하면 됨 
 t$dssp$store XXf$dssp$buyGoods( t$dssp$store store, char*const key_name, const uint32_t buy_number )
 {
 	// 0. 선언.
@@ -653,12 +654,11 @@ t$dssp$store XXf$dssp$buyGoods( t$dssp$store store, char*const key_name, const u
 		// 증정되는 개수를 제외한 개수 만큼만 계산에 적용된다.
 		// 선택된 물품의 가격을 곱한다.
 		// 다만 증정품 개수는 제외해서 가격에 곱할 것.
-		f$dssp$base$addTotalPrice(&result_store, selected_goods->price*(buy_number-gifts_count));
-
+		f$dssp$base$addTotalPrice(&result_store, selected_goods->price * (buy_number-gifts_count));
 		// 7. 행사가 적용 총 판매 액수 업데이트.
-		
 	}
 
+	return result_store;
 	// 3. 
 	SKIP:;
 }
