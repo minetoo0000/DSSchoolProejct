@@ -87,6 +87,7 @@ class Skiplist{
                 cur = cur->l[i];
             }
         }
+        if(cur->l[0]->key != x) return nullptr;
         return cur->l[0];
     }
 
