@@ -528,7 +528,17 @@ uint64_t f$dssp$base$addTotalPrice( t$dssp$store* store_p, const uint64_t add_pr
 	store_p->total_sales_price += add_price;
 
 	// 2. 종료.
-	SKIP:return( store_p->total_sales_price );
+	return( store_p->total_sales_price );
+}
+
+
+// -- base - 매장 - 총 증정 개수 추가 함수.
+// 예외없음.
+// 매점 참조하여 수정 됨.
+// 반환값은 업데이트 후의 총 추가 증정 개수.
+uint32_t f$dssp$base$addTotalGiftsCount( t$dssp$store* store_p, const uint32_t add_count )
+{
+	return( store_p->total_gifts_count += add_count );
 }
 
 
@@ -647,41 +657,39 @@ t$dssp$store XXf$dssp$buyGoods( t$dssp$store store, char*const key_name, const u
 		uint32_t updated_count = 0;
 		
 		/**
-		 * 판매 개수
-		 * 판매 액수
-		 * 증정 개수
+		 * [매점]
+		//  * 판매 개수
+		//  * 판매 액수
+		//  * 증정 개수
 		 * 
-		 * 
+		 * [물품 정보]
+		//  * 물품 재고 수
+		//  * 물품 총 재고 소진량
 		*/
 		
 		
-		// 1. 증정품 개수 구하기.
+		// -- 공통 - 증정품 개수 구하기.
 		gifts_count = f$dssp$numberOfDiscount(*selected_goods, buy_number);
-		// 2. 할인된 비용 구하기.
-		gifts_price = f$dssp$priceOfDiscount(*selected_goods, buy_number);
-
-		// 3. 감소된 개수 구하기.
+		// -- 공통 - 감소된 개수 구하기.
 		updated_count = f$dssp$base$goodsDecline(*selected_goods, buy_number);
-		// 4. 총 판매 개수 업데이트.
-		result_store.total_sales_count += selected_goods->count - updated_count;
-		// 5. 물품 객체 정보 업데이트.
-		// 카운트 중인 감소되는 재고 개수.
-		selected_goods->total_downcount += selected_goods->count - updated_count;
-		// 현재 재고 개수.
-		selected_goods->count = updated_count;
 
-		// 6. 총 판매 액수 업데이트.
-		// 단순히 개수만큼 더해주는 것이 아님.
-		// 증정되는 개수를 제외한 개수 만큼만 계산에 적용된다.
-		// 선택된 물품의 가격을 곱한다.
-		// 다만 증정품 개수는 제외해서 가격에 곱할 것.
+
+		// -- 매점 - 총 판매 개수 업데이트.
+		result_store.total_sales_count += selected_goods->count - updated_count;
+		// -- 매점 - 총 판매 액수 업데이트.
 		f$dssp$base$addTotalPrice(&result_store, selected_goods->price * (buy_number-gifts_count));
-		// 7. 행사가 적용 총 판매 액수 업데이트.
+		// -- 매점 - 총 증정 개수.
+		f$dssp$base$addTotalGiftsCount(&result_store, gifts_count);
+
+
+		// -- 물품 - 현재 재고 개수.
+		selected_goods->count = updated_count;
+		// -- 물품 - 총 재고 소진량.
+		selected_goods->total_downcount += selected_goods->count - updated_count;
 	}
 
-	return result_store;
-	// 3. 
 	SKIP:;
+	return result_store;
 }
 
 
