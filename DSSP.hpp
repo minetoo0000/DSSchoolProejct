@@ -95,9 +95,21 @@ typedef union t$dssp$loop_state
 		uint64_t remove:1;
 		// 4. 매점 통계.
 		uint64_t store_status:1;
+		// 5. 물품 구매.
+		uint64_t buy_goods:1;
+		// 6. 물품 재고 추가.
+		uint64_t goods_additional:1;
+		// 7. 물품 재고 손실.
+		uint64_t goods_loss:1;
+		// 8. 증정품 설정.
+		uint64_t set_gifts:1;
 
 		// 아무것도 선택하지 않기.
 		uint64_t select_null:1;
+		// 아무것도 선택되어있지 않음 예외처리.
+		uint64_t not_selected:1;
+		// Enter 후 menu로 이동.
+		uint64_t wait_enter:1;
 
 		// 확인 불가능한 오류로 인해 다음 작업 처리 실패.
 		uint64_t task_fail:1;
@@ -163,11 +175,53 @@ const t$dssp$loop_state v$dssp$4STORE_STATUS = {
 		.store_status=1,
 	},
 };
+// -- 5. 물품 구매.
+const t$dssp$loop_state v$dssp$BUY = {
+	.state = {
+		.already_init=1,
+		.buy_goods=1,
+	},
+};
+// -- 6. 물품 재고 추가.
+const t$dssp$loop_state v$dssp$GOODS_ADDITIONAL = {
+	.state = {
+		.already_init=1,
+		.goods_additional=1,
+	},
+};
+// -- 7. 물품 재고 손실.
+const t$dssp$loop_state v$dssp$GOODS_LOSS = {
+	.state = {
+		.already_init=1,
+		.goods_loss=1,
+	},
+};
+// -- 8. 증정품 설정.
+const t$dssp$loop_state v$dssp$SET_GIFTS = {
+	.state = {
+		.already_init=1,
+		.set_gifts=1,
+	},
+};
 // -- 아무것도 선택하지 않기.
 const t$dssp$loop_state v$dssp$SELECT_NULL = {
 	.state = {
 		.already_init=1,
 		.select_null=1,
+	},
+};
+// -- 아무것도 선택되어있지 않음 오류.
+const t$dssp$loop_state v$dssp$NOT_SELECTED = {
+	.state = {
+		.already_init=1,
+		.not_selected=1,
+	},
+};
+// -- enter 입력 후 홈을 이동.
+const t$dssp$loop_state v$dssp$WAIT_ENTER = {
+	.state = {
+		.already_init=1,
+		.wait_enter=1,
 	},
 };
 
@@ -375,22 +429,45 @@ t$dssp$store f$dssp$insertGoodsInfo( t$dssp$store store, char*const key_name, t$
 
 
 // -- 상품 삭제.
-int f$dssp$removeGoodsInfo( t$dssp$store store, char*const key_name )
+t$dssp$store f$dssp$removeGoodsInfo( t$dssp$store store, char*const key_name )
 {
-    // 1. 예외처리.
-    if ( key_name == 0 ) return( 0 );
-
-    // 2. 키값으로 변환.
+	// 0. 선언.
+	t$dssp$store result_store = store;
 	Key goods_name(key_name);
+	t$dssp$node* get_node_p = 0;
 	
+    // 1. 예외처리.
+	if ( key_name == 0 ) goto SKIP;
+
     // 3. 해당 키 값 존재하는지 찾기.
-    auto tmp = store.dict.find(goods_name);
-    if ( tmp == nullptr ) return( 0 );
+    get_node_p = store.dict.find(goods_name);
+    if ( get_node_p == nullptr ) return( result_store );
 
     // 4. 삭제.
     store.dict.remove(goods_name);
-    return 1;
+
+	// 5. 카운트 낮춤.
+	result_store.total_goods--;
+
+	// 6. 결과 반환.
+	SKIP:return( result_store );
 }
+// int f$dssp$removeGoodsInfo( t$dssp$store store, char*const key_name )
+// {
+//     // 1. 예외처리.
+//     if ( key_name == 0 ) return( 0 );
+
+//     // 2. 키값으로 변환.
+// 	Key goods_name(key_name);
+	
+//     // 3. 해당 키 값 존재하는지 찾기.
+//     auto tmp = store.dict.find(goods_name);
+//     if ( tmp == nullptr ) return( 0 );
+
+//     // 4. 삭제.
+//     store.dict.remove(goods_name);
+//     return 1;
+// }
 
 
 // -- 상품 이름 변경.
@@ -400,8 +477,6 @@ int f$dssp$renameGoods( t$dssp$store store, char*const key_name, char*const rena
 	t$dssp$goods_info* selected_goods = 0;
 	Key goods_name(key_name);
 	t$dssp$goods_info tmp_goods = { 0 };
-	// 성공 상태.
-	int state = 1;
 	
 	// 1. 예외처리.
 	if ( key_name )
@@ -419,13 +494,13 @@ int f$dssp$renameGoods( t$dssp$store store, char*const key_name, char*const rena
 	tmp_goods = *selected_goods;
 
 	// 4. 키 지우기.
-	state &= f$dssp$removeGoodsInfo(store, key_name);
+	store = f$dssp$removeGoodsInfo(store, key_name);
 
 	// 5. rename을 키값으로 물품 정보 객체 생성 및 매점에 삽입.
 	store = f$dssp$insertGoodsInfo(store, rename, tmp_goods);
 
 	// 6. 성공 여부 반환.
-	return( state );
+	return( 1 );
 	// 예외처리.
 	SKIP:return( 0 );
 }
@@ -438,7 +513,7 @@ uint32_t f$dssp$numberOfDiscount( const t$dssp$goods_info goods, const uint32_t 
 	uint32_t result_count = 0;
 
 	// 1. 계산하기.
-	result_count = buy_number%(goods.additional_n+1);
+	result_count = buy_number/(goods.additional_n+1);
 	// ((buy_number/goods.additional_n)*goods.additional_m);
 
 	// 2. 증정품 개수 반환.
@@ -480,8 +555,8 @@ uint32_t f$dssp$base$goodsAdditional( t$dssp$goods_info goods, const uint32_t n 
 	// (max-1) + (2) = 0 > 2 : false
 	//
 	// (max) + (max) = max-1 > max : false
-	if ( goods.count+n > n )
-	if ( goods.count+n > goods.count )
+	if ( goods.count+n >= n )
+	if ( goods.count+n >= goods.count )
 	goto KEEP;
 	goto SKIP;
 	KEEP:;
@@ -586,12 +661,10 @@ t$dssp$store f$dssp$goodsAdditional( t$dssp$store store, char*const key_name, co
 	updated_count = f$dssp$base$goodsAdditional(*selected_goods, n);
 
 	// 4. 딕셔너리의 재고량 업데이트.
+	selected_goods->total_upcount += updated_count - selected_goods->count;
 	selected_goods->count = updated_count;
 
-	// 5. 매점 판매 개수 적용하기.
-	result_store.total_sales_count += updated_count - selected_goods->count;
-
-	// 6. 매점 객체 반환.
+	// 5. 매점 객체 반환.
 	SKIP:return( result_store );
 }
 
@@ -628,8 +701,10 @@ t$dssp$store f$dssp$goodsLoss( t$dssp$store store, char*const key_name, const ui
 	
 	// 4. 적용된 손실된 량 구하기.
 	result_store.total_loss_count += selected_goods->count - updated_count;
+	result_store.total_losses += selected_goods->price*(selected_goods->count-updated_count);
 
 	// 5. 딕셔너리의 재고량 업데이트.
+	selected_goods->total_losscount += selected_goods->count - updated_count;
 	selected_goods->count = updated_count;
 
 	// 6. 매점 객체 반환.
@@ -695,19 +770,18 @@ t$dssp$store f$dssp$buyGoods( t$dssp$store store, char*const key_name, const uin
 		// -- 매점 - 총 판매 개수 업데이트.
 		result_store.total_sales_count += selected_goods->count - updated_count;
 		// -- 매점 - 총 판매 액수 업데이트.
-		f$dssp$base$addTotalPrice(&result_store, selected_goods->price * (buy_number-gifts_count));
+		f$dssp$base$addTotalPrice(&result_store, selected_goods->price * ((selected_goods->count-updated_count)-gifts_count));
 		// -- 매점 - 총 증정 개수.
 		f$dssp$base$addTotalGiftsCount(&result_store, gifts_count);
 
 
-		// -- 물품 - 현재 재고 개수.
-		selected_goods->count = updated_count;
 		// -- 물품 - 총 재고 소진량.
 		selected_goods->total_downcount += selected_goods->count - updated_count;
+		// -- 물품 - 현재 재고 개수.
+		selected_goods->count = updated_count;
 	}
 
-	SKIP:;
-	return result_store;
+	SKIP:return result_store;
 }
 
 
@@ -756,6 +830,14 @@ t$dssp$loop_state f$dssp$menuidToState( const int num )
 		case 3:return( v$dssp$3REMOVE );
 		// -- 4. 매점 통계.
 		case 4:return( v$dssp$4STORE_STATUS );
+		// -- 5. 물품 구매.
+		case 5:return( v$dssp$BUY );
+		// -- 6. 물품 재고 추가.
+		case 6:return( v$dssp$GOODS_ADDITIONAL );
+		// -- 7. 물품 재고 손실.
+		case 7:return( v$dssp$GOODS_LOSS );
+		// -- 8. 증정품 설정.
+		case 8:return( v$dssp$SET_GIFTS );
 		// -- error
 		default:return( v$dssp$TASK_FAIL );
 	}
@@ -803,7 +885,12 @@ int f$dssp$cli$menuScreen()
 	f$dssp$cli$print("1.  물품 선택 : 물품의 이름으로 물품을 선택합니다.",0);
 	f$dssp$cli$print("2.  물품 추가 : 새 물품을 등록합니다.",0);
 	f$dssp$cli$print("3.  물품 제거 : 선택된 물품을 등록에서 완전히 제거합니다.",0);
-	f$dssp$cli$print("4.  매점 통계 : 현재 매점에 대한 통계 정보를 제공합니다.",2);
+	f$dssp$cli$print("4.  매점 통계 : 현재 매점에 대한 통계 정보를 제공합니다.",0);
+	f$dssp$cli$print("5.  물품 구매 : 선택된 물품을 소비자가 n개 구매합니다.",0);
+	f$dssp$cli$print("6.  물품 재고 추가 : 선택된 물품의 재고를 n개 추가합니다.",0);
+	f$dssp$cli$print("7.  물품 재고 손실 : 선택된 물품의 재고를 n개 손실 처리합니다.",0);
+	f$dssp$cli$print("8.  물품 추가 증정 설정 : 선택된 물품의 추가 증정량을 설정하거나 해제합니다.",0);
+	f$dssp$cli$print("",1);
 	return( 1 );
 }
 
@@ -830,13 +917,18 @@ void f$dssp$cli$callback$printGoodsInfo( Key goods_name, t$dssp$goods_info goods
 {
 	printf("-  [ \"%s\" ]\n", goods_name.key);
 	printf("-    정가 : %u원\n", goods.price);
+	if ( goods.additional_n )
+	{
+		f$dssp$cli$print("  [ 추가 증정 행사 중! ]",0);
+		printf("-      %d + 1 증정 중입니다.\n", goods.additional_n);
+	}
 	printf("-    남은 재고 수 : %u개\n", goods.count);
 	f$dssp$cli$print("",0);
 	printf("-    총 재고 추가량 : %u개\n", goods.total_upcount);
 	printf("-    총 재고 손실량 : %u개\n", goods.total_losscount);
 	printf("-    총 재고 소진량 : %u개\n", goods.total_downcount);
 	f$dssp$cli$print("",0);
-	printf("-    총 재고 판매액 : %llu원\n", goods.total_upcount*goods.price);
+	printf("-    총 재고 판매액 : %llu원\n", goods.total_downcount*goods.price);
 	printf("-    총 재고 손실액 : %llu원\n", goods.total_losscount*goods.price);
 	f$dssp$cli$print("",1);
 }
@@ -850,7 +942,8 @@ struct class$DSSP
 	int(*const setPrice)( t$dssp$store store, char*const key_name, const uint64_t price );
 	int(*const setGifts)( t$dssp$store store, char*const key_name, const uint8_t n );
 	t$dssp$store(*const insertGoodsInfo)( t$dssp$store store, char*const key_name, t$dssp$goods_info goods_info );
-	int(*const removeGoodsInfo)( t$dssp$store store, char*const key_name );
+	// int(*const removeGoodsInfo)( t$dssp$store store, char*const key_name );
+	t$dssp$store(*const removeGoodsInfo)( t$dssp$store store, char*const key_name );
 	int(*const renameGoods)( t$dssp$store store, char*const key_name, char*const rename );
 	t$dssp$store(*const goodsAdditional)( t$dssp$store store, char*const key_name, const uint32_t n );
 	t$dssp$store(*const goodsLoss)( t$dssp$store store, char*const key_name, const uint32_t n );
@@ -929,7 +1022,25 @@ const LoopState dssp_REMOVE = v$dssp$3REMOVE;
 // -- 4. 매점 통계.
 const LoopState dssp_STORE_STATUS = v$dssp$4STORE_STATUS;
 
+// -- 5. 물품 구매.
+const LoopState dssp_BUY = v$dssp$BUY;
+
+// -- 6. 물품 재고 추가.
+const LoopState dssp_GOODS_ADDITIONAL = v$dssp$GOODS_ADDITIONAL;
+
+// -- 7. 물품 재고 손실.
+const LoopState dssp_GOODS_LOSS = v$dssp$GOODS_LOSS;
+
+// -- 8. 물품 재고 손실.
+const LoopState dssp_SET_GIFTS = v$dssp$SET_GIFTS;
+
 // -- 아무것도 선택하지 않음.
 const LoopState dssp_SELECT_NULL = v$dssp$SELECT_NULL;
+
+// -- 아무것도 선택하지 않음 오류.
+const LoopState dssp_NOT_SELECTED = v$dssp$NOT_SELECTED;
+
+// -- enter 입력 후 홈으로 이동.
+const LoopState dssp_WAIT_ENTER = v$dssp$WAIT_ENTER;
 
 #endif
