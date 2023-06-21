@@ -514,7 +514,6 @@ uint32_t f$dssp$numberOfDiscount( const t$dssp$goods_info goods, const uint32_t 
 
 	// 1. 계산하기.
 	result_count = buy_number/(goods.additional_n+1);
-	// ((buy_number/goods.additional_n)*goods.additional_m);
 
 	// 2. 증정품 개수 반환.
 	return( result_count );
